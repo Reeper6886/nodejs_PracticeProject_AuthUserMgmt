@@ -2,9 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const session = require('express-session')
 const routes = require('./router/friends.js')
-
 let users = []
-
 const doesExist = (username)=>{
   let userswithsamename = users.filter((user)=>{
     return user.username === username
@@ -15,7 +13,6 @@ const doesExist = (username)=>{
     return false;
   }
 }
-
 const authenticatedUser = (username,password)=>{
   let validusers = users.filter((user)=>{
     return (user.username === username && user.password === password)
@@ -26,13 +23,10 @@ const authenticatedUser = (username,password)=>{
     return false;
   }
 }
-
 const app = express();
-
-app.use(session({secret:"fingerpint"},resave=true,saveUninitialized=true));
-
 app.use(express.json());
-
+app.use(session({secret:"fingerpint"},resave=true,saveUninitialized=true));
+app.use(express.json());
 app.use("/friends", function auth(req,res,next){
    if(req.session.authorization) {
        token = req.session.authorization['accessToken'];
@@ -49,20 +43,31 @@ app.use("/friends", function auth(req,res,next){
         return res.status(403).json({message: "User not logged in"})
     }
 });
-
+//get login users
+app.get("/logged-in-users", (req, res) => {
+    if (req.session.authorization) {
+      const loggedInUsername = req.session.authorization.username;
+  
+      // Filter the users array to find all users with a valid session
+      const loggedInUsers = users.filter((user) => {
+        return user.username === loggedInUsername;
+      });
+  
+      res.status(200).json({ loggedInUsers });
+    } else {
+      res.status(403).json({ message: "User not logged in" });
+    }
+  });
 app.post("/login", (req,res) => {
   const username = req.body.username;
   const password = req.body.password;
-
   if (!username || !password) {
       return res.status(404).json({message: "Error logging in"});
   }
-
   if (authenticatedUser(username,password)) {
     let accessToken = jwt.sign({
       data: password
-    }, 'access', { expiresIn: 60 * 60 });
-
+    }, 'access', { expiresIn: 5 });
     req.session.authorization = {
       accessToken,username
   }
@@ -71,11 +76,9 @@ app.post("/login", (req,res) => {
     return res.status(208).json({message: "Invalid Login. Check username and password"});
   }
 });
-
 app.post("/register", (req,res) => {
   const username = req.body.username;
   const password = req.body.password;
-
   if (username && password) {
     if (!doesExist(username)) { 
       users.push({"username":username,"password":password});
@@ -87,9 +90,6 @@ app.post("/register", (req,res) => {
   return res.status(404).json({message: "Unable to register user."});
 });
 
-
 const PORT =5000;
-
 app.use("/friends", routes);
-
 app.listen(PORT,()=>console.log("Server is running"));
